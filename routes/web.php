@@ -2,10 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\HomeController;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login'])->name('login.post');
@@ -36,3 +36,6 @@ Route::get('/marketing/login', function() {
 Route::get('/redaksi/login', function() {
     return redirect('/login');
 });
+
+Route::get('/berita', [PostController::class, 'index'])->name('posts.index');
+Route::get('/berita/{slug}', [PostController::class, 'show'])->name('posts.show');
