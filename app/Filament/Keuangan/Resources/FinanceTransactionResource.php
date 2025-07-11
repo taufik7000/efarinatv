@@ -3,6 +3,7 @@
 namespace App\Filament\Keuangan\Resources;
 
 use App\Filament\Keuangan\Resources\FinanceTransactionResource\Pages;
+use App\Models\Advertisement;
 use App\Models\FinanceTransaction;
 use App\Models\Team;
 use App\Models\FinanceCategory;
@@ -19,7 +20,7 @@ use Filament\Infolists\Components\RepeatableEntry;
 use Illuminate\Support\Facades\Storage;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Collection;
-use Carbon\Carbon; // <-- TAMBAHKAN INI
+use Carbon\Carbon;
 
 class FinanceTransactionResource extends Resource
 {
@@ -31,7 +32,7 @@ class FinanceTransactionResource extends Resource
 
     public static function form(Form $form): Form
     {
-        // ... (Form tidak berubah, biarkan seperti sebelumnya)
+        // Kode form tidak perlu diubah, biarkan seperti sebelumnya
         return $form
             ->schema([
                 Forms\Components\Wizard::make([
@@ -86,19 +87,6 @@ class FinanceTransactionResource extends Resource
                         ]),
                 ])
                 ->columnSpanFull()
-                ->mutateDehydratedStateUsing(function (array $state): array {
-                    if ($state['type'] === 'expense') {
-                        $total = 0;
-                        if (isset($state['details'])) {
-                            foreach ($state['details'] as $detail) {
-                                $total += (float) ($detail['amount'] ?? 0);
-                            }
-                        }
-                        $state['total_amount'] = $total;
-                    }
-                    $state['user_id'] = Auth::id();
-                    return $state;
-                }),
             ]);
     }
 
@@ -125,74 +113,27 @@ class FinanceTransactionResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->visible(fn (FinanceTransaction $record): bool => !in_array($record->status, ['approved', 'paid'])),
-                Tables\Actions\ViewAction::make()
-                    ->infolist(function (Infolist $infolist): Infolist {
-                        return $infolist
-                            ->schema([
-                                Section::make('Informasi Utama')
-                                    ->columns(3)
-                                    ->schema([
-                                        TextEntry::make('type')->label('Tipe Transaksi')->badge()->color(fn ($state) => $state === 'income' ? 'success' : 'danger'),
-                                        TextEntry::make('status_text')->label('Status')->badge(),
-                                        TextEntry::make('total_amount')->label('Jumlah Total')->money('IDR'),
-                                        TextEntry::make('transaction_date')->label('Tanggal Transaksi')->dateTime(),
-                                        TextEntry::make('user.name')->label('Diinput Oleh'),
-                                        TextEntry::make('approver.name')
-                                            ->label('Disetujui Oleh')
-                                            ->default('-'),
-                                        // --- AWAL PERUBAHAN ---
-                                        TextEntry::make('approved_at')
-                                            ->label('Tanggal Disetujui')
-                                            ->formatStateUsing(function ($state): ?string {
-                                                // Hanya format jika state adalah instance dari Carbon (objek tanggal)
-                                                if ($state instanceof Carbon) {
-                                                    return $state->isoFormat('D MMMM YYYY, HH:mm');
-                                                }
-                                                // Jika tidak, kembalikan null agar nilai default bisa digunakan
-                                                return null;
-                                            })
-                                            ->default('-'),
-                                        // --- AKHIR PERUBAHAN ---
-                                        TextEntry::make('description')->label('Deskripsi')->columnSpanFull(),
-                                    ]),
-                                Section::make('Rincian Biaya')
-                                    ->hidden(fn ($record) => $record->type !== 'expense')
-                                    ->schema([
-                                        RepeatableEntry::make('details')
-                                            ->label('')
-                                            ->schema([
-                                                TextEntry::make('team.name')->label('Tim'),
-                                                TextEntry::make('category.name')->label('Kategori'),
-                                                TextEntry::make('amount')->label('Jumlah')->money('IDR'),
-                                            ])->columns(3),
-                                    ]),
-                                Section::make('Bukti Transaksi')
-                                    ->schema([
-                                        RepeatableEntry::make('attachments')
-                                            ->label('')
-                                            ->schema([
-                                                TextEntry::make('file_name')
-                                                    ->label('Nama File')
-                                                    ->url(fn ($record) => Storage::url($record->file_path), true),
-                                                TextEntry::make('file_size')
-                                                    ->label('Ukuran')
-                                                    ->formatStateUsing(fn (int $state): string => round($state / 1024, 2) . ' KB'),
-                                                TextEntry::make('uploadedBy.name')->label('Diupload Oleh'),
-                                            ])->columns(3),
-                                    ]),
-                            ]);
-                    }),
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\Action::make('approve')
                         ->label('Setujui')
                         ->color('success')
                         ->icon('heroicon-o-check-circle')
                         ->action(function (FinanceTransaction $record) {
+                            // 1. Update status transaksi
                             $record->update([
                                 'status' => 'approved',
                                 'approved_by' => Auth::id(),
                                 'approved_at' => now(),
                             ]);
+
+                            // 2. Cari iklan terkait dan update statusnya menjadi 'active'
+                            if ($record->advertisement_id) {
+                                $advertisement = Advertisement::find($record->advertisement_id);
+                                if ($advertisement) {
+                                    $advertisement->update(['status' => 'active']);
+                                }
+                            }
                         })
                         ->requiresConfirmation(),
                     Tables\Actions\Action::make('reject')
@@ -222,7 +163,9 @@ class FinanceTransactionResource extends Resource
     }
     
     public static function getRelations(): array { return []; }
-    public static function getPages(): array {
+    
+    public static function getPages(): array
+    {
         return [
             'index' => Pages\ListFinanceTransactions::route('/'),
             'create' => Pages\CreateFinanceTransaction::route('/create'),
