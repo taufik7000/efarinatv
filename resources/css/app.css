@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -6,6 +7,260 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Inter', 'Arial', 'Helvetica', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Header scroll behavior */
+#top-bar {
+    transition: transform 0.3s ease-in-out;
+}
+
+#nav-bar {
+    transition: all 0.3s ease-in-out;
+}
+
+#secondary-bar {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Header specific spacing */
+main {
+    padding-top: 152px; /* Total header height: 64px + 48px + 40px */
+    transition: padding-top 0.3s ease-in-out;
+}
+
+/* When scrolled, adjust main padding */
+.header-scrolled main {
+    padding-top: 88px; /* 48px nav + 40px secondary */
+}
+
+@media (max-width: 1024px) {
+    main {
+        padding-top: 120px; /* Mobile header height */
+    }
+    
+    .header-scrolled main {
+        padding-top: 60px; /* Mobile scrolled height */
+    }
+}
+
+/* Header Navigation Styling - Override semua Tailwind classes */
+.header-nav-blue,
+.header-nav-blue.bg-red-700,
+.header-nav-blue.bg-blue-700 {
+    background-color: #1d4ed8 !important;
+}
+
+.header-nav-blue a:hover {
+    background-color: #1e40af !important;
+}
+
+.header-live-badge,
+.header-live-badge.bg-red-600,
+.header-live-badge.bg-blue-600 {
+    background-color: #2563eb !important;
+}
+
+/* Override Tailwind red classes secara spesifik */
+header .bg-red-700 {
+    background-color: #1d4ed8 !important;
+}
+
+header .bg-red-600 {
+    background-color: #2563eb !important;
+}
+
+header .border-red-600 {
+    border-color: #2563eb !important;
+}
+
+header .hover\:bg-red-800:hover {
+    background-color: #1e40af !important;
+}
+
+/* Button hover states untuk header */
+.header-button:hover {
+    color: #2563eb !important;
+}
+
+/* Logo styling untuk Efarina TV */
+.logo-efarina {
+    font-family: 'Arial Black', 'Arial', 'Helvetica', sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.8px;
+    text-transform: lowercase;
+    line-height: 1;
+}
+
+.logo-efarina .text-blue {
+    color: #1e40af; /* Blue-800 */
+}
+
+.logo-efarina .text-red {
+    color: #dc2626; /* Red-600 */
+}
+
+/* Header specific styling */
+.header-logo {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+@media (max-width: 640px) {
+    .header-logo {
+        font-size: 2rem;
+    }
+}
+
+/* Custom CSS untuk header dan footer */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Custom gradient animation */
+@keyframes gradient {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 3s ease infinite;
+}
+
+/* Custom backdrop blur untuk browser lama */
+.backdrop-blur-fallback {
+    background-color: rgba(255, 255, 255, 0.95);
+}
+
+@supports (backdrop-filter: blur(12px)) {
+    .backdrop-blur-fallback {
+        background-color: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+    }
+}
+
+/* Pulse animation untuk live badge */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Smooth transitions untuk semua elemen */
+* {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #3b82f6, #8b5cf6);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #2563eb, #7c3aed);
+}
+
+/* Focus styles untuk accessibility */
+button:focus,
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* Loading animation untuk gambar */
+img {
+    transition: opacity 0.3s ease;
+}
+
+img[data-loading="true"] {
+    opacity: 0.7;
+}
+
+/* Text gradient utility */
+.text-gradient {
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Shadow utilities */
+.shadow-elegant {
+    box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-glow {
+    box-shadow: 0 0 20px rgba(37, 99, 235, 0.15);
+}
+
+/* Custom button hover effects */
+.btn-hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Card hover effects */
+.card-hover {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Responsive text utilities */
+@media (max-width: 640px) {
+    .text-responsive-lg {
+        font-size: 1.5rem;
+        line-height: 2rem;
+    }
+}
+
+@media (min-width: 641px) {
+    .text-responsive-lg {
+        font-size: 2.25rem;
+        line-height: 2.5rem;
+    }
+}
+
+/* Print styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
 }

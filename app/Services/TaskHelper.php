@@ -1,71 +1,34 @@
 <?php
 
-namespace App\Filament\Marketing\Resources\AdvertisementResource\Pages;
+namespace App\Services;
 
-use App\Filament\Marketing\Resources\AdvertisementResource;
 use App\Models\Task;
 use App\Models\TaskCategory;
-use App\Models\FinanceTransaction;
 use App\Models\User;
-use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Advertisement;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
-class CreateAdvertisement extends CreateRecord
+class TaskHelper
 {
-    protected static string $resource = AdvertisementResource::class;
-
-    protected function handleRecordCreation(array $data): Model
-    {
-        // Tetapkan user marketing yang membuat
-        $data['marketing_user_id'] = Auth::id();
-        
-        // Hitung durasi hari otomatis
-        if (isset($data['start_date']) && isset($data['end_date'])) {
-            $startDate = Carbon::parse($data['start_date']);
-            $endDate = Carbon::parse($data['end_date']);
-            $data['duration_days'] = $startDate->diffInDays($endDate) + 1;
-        }
-
-        // 1. Buat record iklan utama
-        $advertisement = static::getModel()::create($data);
-
-        // 2. OTOMATIS: Buat transaksi pemasukan dengan status PENDING
-        FinanceTransaction::create([
-            'advertisement_id' => $advertisement->id,
-            'type' => 'income',
-            'status' => 'pending',
-            'total_amount' => $advertisement->price,
-            'description' => 'Pemasukan dari iklan ' . $advertisement->title . ' (' . $advertisement->client_name . ')',
-            'transaction_date' => now(),
-            'user_id' => Auth::id(),
-        ]);
-
-        // 3. OTOMATIS: Buat task untuk tim Marketing (follow up pembayaran)
-        // Task ini dibuat segera untuk follow up pembayaran
-        $this->createTaskForMarketing($advertisement);
-
-        // CATATAN: Task untuk redaksi TIDAK dibuat di sini
-        // Task redaksi akan dibuat otomatis saat transaksi di-approve oleh keuangan
-        // Lihat: FinanceTransactionResource action 'approve'
-
-        return $advertisement;
-    }
-
     /**
-     * Membuat task untuk tim Redaksi
+     * Membuat task untuk tim Redaksi saat iklan sudah dibayar
      */
-    private function createTaskForRedaksi($advertisement)
+    public static function createTaskForRedaksi(Advertisement $advertisement): ?Task
     {
         $kategoriIklan = TaskCategory::where('name', 'Iklan & Promosi')->first();
         $redaksiUser = User::whereHas('roles', function ($query) {
             $query->where('name', 'redaksi');
         })->first();
 
+        // Load relasi adType jika belum dimuat
+        if (!$advertisement->relationLoaded('adType')) {
+            $advertisement->load('adType');
+        }
+
         $taskDescription = "Siapkan materi iklan untuk klien {$advertisement->client_name}.\n\n" .
                           "**Detail Iklan:**\n" .
-                          "- Jenis: {$advertisement->adType->name}\n" .
+                          "- Jenis: " . ($advertisement->adType->name ?? 'Tidak diketahui') . "\n" .
                           "- Periode Tayang: " . Carbon::parse($advertisement->start_date)->format('d M Y') . 
                           " - " . Carbon::parse($advertisement->end_date)->format('d M Y') . "\n" .
                           "- Budget: Rp " . number_format($advertisement->price) . "\n";
@@ -102,7 +65,7 @@ class CreateAdvertisement extends CreateRecord
                            "- Jadwal penayangan\n" .
                            "- Koordinasi dengan tim teknis";
 
-        Task::create([
+        return Task::create([
             'title' => 'Siapkan Materi Iklan: ' . $advertisement->title,
             'description' => $taskDescription,
             'department' => 'redaksi',
@@ -113,18 +76,18 @@ class CreateAdvertisement extends CreateRecord
             'assigned_to' => $redaksiUser?->id,
             'advertisement_id' => $advertisement->id,
             'due_date' => Carbon::parse($advertisement->start_date)->subDays(3),
-            'notes' => 'Harap koordinasi dengan tim marketing untuk detail tambahan yang diperlukan.'
+            'notes' => 'Tugas ini dibuat otomatis setelah pembayaran iklan dikonfirmasi. Harap koordinasi dengan tim marketing untuk detail tambahan yang diperlukan.'
         ]);
     }
 
     /**
-     * Membuat task untuk tim Marketing (follow up)
+     * Membuat task untuk tim Marketing (follow up pembayaran)
      */
-    private function createTaskForMarketing($advertisement)
+    public static function createTaskForMarketing(Advertisement $advertisement): ?Task
     {
         $kategoriAdministrasi = TaskCategory::where('name', 'Administrasi')->first();
 
-        Task::create([
+        return Task::create([
             'title' => 'Follow Up Pembayaran: ' . $advertisement->client_name,
             'description' => "Follow up pembayaran iklan dari klien {$advertisement->client_name}.\n\n" .
                            "**Detail:**\n" .
@@ -148,8 +111,62 @@ class CreateAdvertisement extends CreateRecord
         ]);
     }
 
-    protected function getRedirectUrl(): string
+    /**
+     * Membuat task untuk keuangan saat ada transaksi pending
+     */
+    public static function createTaskForKeuangan(Advertisement $advertisement): ?Task
     {
-        return $this->getResource()::getUrl('view', ['record' => $this->getRecord()]);
+        $kategoriKeuangan = TaskCategory::where('name', 'Keuangan')->first();
+        $keuanganUser = User::whereHas('roles', function ($query) {
+            $query->where('name', 'keuangan');
+        })->first();
+
+        return Task::create([
+            'title' => 'Verifikasi Pembayaran Iklan: ' . $advertisement->client_name,
+            'description' => "Verifikasi pembayaran iklan dari klien {$advertisement->client_name}.\n\n" .
+                           "**Detail Iklan:**\n" .
+                           "- Kampanye: {$advertisement->title}\n" .
+                           "- Nilai: Rp " . number_format($advertisement->price) . "\n" .
+                           "- Metode Pembayaran: " . ($advertisement->payment_method ? ucfirst($advertisement->payment_method) : 'Belum ditentukan') . "\n\n" .
+                           "**Yang Perlu Dilakukan:**\n" .
+                           "- Cek bukti pembayaran\n" .
+                           "- Verifikasi nominal di rekening\n" .
+                           "- Approve transaksi di sistem\n" .
+                           "- Informasikan ke tim marketing dan redaksi",
+            'department' => 'keuangan',
+            'category_id' => $kategoriKeuangan?->id,
+            'priority' => 'high',
+            'status' => 'todo',
+            'created_by' => Auth::id(),
+            'assigned_to' => $keuanganUser?->id,
+            'advertisement_id' => $advertisement->id,
+            'due_date' => $advertisement->payment_due_date ? Carbon::parse($advertisement->payment_due_date) : now()->addDays(2),
+            'notes' => 'Task ini dibuat otomatis saat ada iklan baru yang perlu verifikasi pembayaran.'
+        ]);
+    }
+
+    /**
+     * Update task status saat iklan selesai
+     */
+    public static function completeAdvertisementTasks(Advertisement $advertisement): void
+    {
+        Task::where('advertisement_id', $advertisement->id)
+            ->whereIn('status', ['todo', 'in_progress', 'review'])
+            ->update([
+                'status' => 'completed',
+                'completed_at' => now()
+            ]);
+    }
+
+    /**
+     * Cancel task saat iklan dibatalkan
+     */
+    public static function cancelAdvertisementTasks(Advertisement $advertisement): void
+    {
+        Task::where('advertisement_id', $advertisement->id)
+            ->whereIn('status', ['todo', 'in_progress', 'review'])
+            ->update([
+                'status' => 'cancelled'
+            ]);
     }
 }

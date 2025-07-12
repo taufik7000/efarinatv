@@ -39,3 +39,4 @@ Route::get('/redaksi/login', function() {
 
 Route::get('/berita', [PostController::class, 'index'])->name('posts.index');
 Route::get('/berita/{slug}', [PostController::class, 'show'])->name('posts.show');
+

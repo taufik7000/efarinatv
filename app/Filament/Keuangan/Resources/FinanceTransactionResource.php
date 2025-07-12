@@ -7,20 +7,15 @@ use App\Models\Advertisement;
 use App\Models\FinanceTransaction;
 use App\Models\Team;
 use App\Models\FinanceCategory;
+use App\Services\TaskHelper;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
-use Filament\Infolists\Infolist;
-use Filament\Infolists\Components\Section;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\RepeatableEntry;
-use Illuminate\Support\Facades\Storage;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Collection;
-use Carbon\Carbon;
 
 class FinanceTransactionResource extends Resource
 {
@@ -32,7 +27,7 @@ class FinanceTransactionResource extends Resource
 
     public static function form(Form $form): Form
     {
-        // Kode form tidak perlu diubah, biarkan seperti sebelumnya
+        // Form code sama seperti sebelumnya
         return $form
             ->schema([
                 Forms\Components\Wizard::make([
@@ -100,6 +95,7 @@ class FinanceTransactionResource extends Resource
                 Tables\Columns\TextColumn::make('transaction_date')->label('Tanggal')->dateTime('d M Y')->sortable(),
                 Tables\Columns\TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) { 'pending' => 'warning', 'approved' => 'success', 'rejected' => 'danger', 'paid' => 'info', default => 'gray', })->formatStateUsing(fn (string $state): string => ucfirst($state)),
                 Tables\Columns\TextColumn::make('user.name')->label('Dibuat Oleh')->sortable(),
+                Tables\Columns\TextColumn::make('advertisement.client_name')->label('Klien Iklan')->default('-')->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -132,10 +128,16 @@ class FinanceTransactionResource extends Resource
                                 $advertisement = Advertisement::find($record->advertisement_id);
                                 if ($advertisement) {
                                     $advertisement->update(['status' => 'active']);
+                                    
+                                    // 3. BUAT TASK UNTUK REDAKSI setelah pembayaran di-approve
+                                    TaskHelper::createTaskForRedaksi($advertisement);
                                 }
                             }
                         })
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->modalHeading('Konfirmasi Persetujuan')
+                        ->modalDescription('Setelah disetujui, task akan otomatis dibuat untuk tim Redaksi dan status iklan menjadi aktif.')
+                        ->modalSubmitActionLabel('Setujui'),
                     Tables\Actions\Action::make('reject')
                         ->label('Tolak')
                         ->color('danger')

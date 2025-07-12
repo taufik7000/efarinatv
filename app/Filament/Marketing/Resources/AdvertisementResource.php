@@ -74,6 +74,7 @@ class AdvertisementResource extends Resource
             'index' => Pages\ListAdvertisements::route('/'),
             'create' => Pages\CreateAdvertisement::route('/create'),
             'edit' => Pages\EditAdvertisement::route('/{record}/edit'),
+            'view' => Pages\ViewAdvertisement::route('/{record}'),
         ];
     }    
 }

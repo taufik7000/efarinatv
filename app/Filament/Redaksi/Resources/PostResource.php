@@ -15,6 +15,7 @@ use Filament\Forms\Components\Select;
 use Filament\Tables\Actions\Action;
 use Filament\Forms\Components\FileUpload; 
 use Filament\Tables\Columns\ImageColumn;  
+
 class PostResource extends Resource
 {
     protected static ?string $model = Post::class;
@@ -79,8 +80,22 @@ class PostResource extends Resource
                                 ->label('Gambar Thumbnail')
                                 ->image()
                                 ->directory('thumbnails')
-                                ->imageEditor(),
+                                ->imageEditor(), // Tetap gunakan imageEditor jika Anda ingin fitur crop/resize
 
+                            // Tambahkan field untuk Alt Text
+                            Forms\Components\TextInput::make('thumbnail_alt')
+                                ->label('Alt Text Gambar')
+                                ->helperText('Teks alternatif untuk gambar (penting untuk SEO & aksesibilitas).')
+                                ->maxLength(255)
+                                ->nullable(), // Bisa kosong jika tidak diisi
+
+                            // Tambahkan field untuk Caption
+                            Forms\Components\TextInput::make('thumbnail_caption')
+                                ->label('Caption Gambar')
+                                ->helperText('Keterangan singkat untuk gambar.')
+                                ->maxLength(255)
+                                ->nullable(), // Bisa kosong jika tidak diisi
+                            
                             Forms\Components\Select::make('status')
                                 ->label('Status')
                                 ->options([

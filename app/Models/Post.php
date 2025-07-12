@@ -16,7 +16,8 @@ class Post extends Model
      *
      * @var array
      */
-    protected $guarded = ['id'];
+    // Tambahkan 'thumbnail_alt' dan 'thumbnail_caption' di sini
+    protected $guarded = ['id']; 
 
     /**
      * Atribut yang harus di-cast ke tipe data tertentu.

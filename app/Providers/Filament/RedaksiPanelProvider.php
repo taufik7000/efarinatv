@@ -17,6 +17,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Filament\Notifications\NotificationsPlugin;
 
 class RedaksiPanelProvider extends PanelProvider
 {
@@ -33,6 +34,8 @@ class RedaksiPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
             ])
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('5s')
             ->discoverWidgets(in: app_path('Filament/Redaksi/Widgets'), for: 'App\\Filament\\Redaksi\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,

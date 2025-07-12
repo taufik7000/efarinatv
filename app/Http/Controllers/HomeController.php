@@ -12,21 +12,45 @@ class HomeController extends Controller
      */
     public function index()
     {
-        // Ambil semua berita yang sudah publish dan urutkan dari yang terbaru
-        $latestPosts = Post::where('status', 'published')
-                           ->where('published_at', '<=', now())
-                           ->with(['author', 'category'])
-                           ->latest('published_at')
-                           ->take(5) // Ambil 5 berita terbaru
-                           ->get();
+        // Debug: Cek total posts yang ada
+        $totalPosts = Post::count();
+        
+        // Debug: Cek posts dengan status published
+        $publishedPosts = Post::where('status', 'published')->count();
+        
+        // Debug: Cek posts dengan tanggal published <= sekarang
+        $currentPublishedPosts = Post::where('status', 'published')
+                                   ->where('published_at', '<=', now())
+                                   ->count();
 
-        // Pisahkan berita pertama sebagai berita utama (hero)
-        $heroPost = $latestPosts->shift();
+        // Ambil semua berita yang sudah publish untuk home page
+        $recentPosts = Post::where('status', 'published')
+                          ->where('published_at', '<=', now())
+                          ->with(['author', 'category'])
+                          ->latest('published_at')
+                          ->take(15) // Ambil 15 berita untuk semua keperluan
+                          ->get();
 
-        // Sisa 4 berita akan menjadi berita terbaru
-        $recentPosts = $latestPosts;
+        // Jika tidak ada posts dengan status published, ambil semua posts untuk development
+        if ($recentPosts->isEmpty()) {
+            $recentPosts = Post::with(['author', 'category'])
+                              ->latest('created_at')
+                              ->take(15)
+                              ->get();
+        }
+
+        // Debug info (bisa dihapus di production)
+        if (app()->environment('local')) {
+            \Log::info('Home Controller Debug:', [
+                'total_posts' => $totalPosts,
+                'published_posts' => $publishedPosts,
+                'current_published_posts' => $currentPublishedPosts,
+                'recent_posts_count' => $recentPosts->count(),
+                'recent_posts_titles' => $recentPosts->pluck('title')->toArray()
+            ]);
+        }
 
         // Kirim data ke view
-        return view('home', compact('heroPost', 'recentPosts'));
+        return view('home', compact('recentPosts'));
     }
 }
