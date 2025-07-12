@@ -57,7 +57,20 @@ class TaskResource extends Resource
                             ->label('Kategori')
                             ->options(TaskCategory::pluck('name', 'id'))
                             ->searchable()
-                            ->required(),
+                            ->required()
+                            ->createOptionForm([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nama Kategori')
+                                    ->required(),
+                                Forms\Components\Textarea::make('description')
+                                    ->label('Deskripsi'),
+                                Forms\Components\ColorPicker::make('color')
+                                    ->label('Warna')
+                                    ->default('#6b7280'),
+                            ])
+                            ->createOptionUsing(function (array $data): int {
+                                return TaskCategory::create($data)->getKey();
+                            }),
 
                         Forms\Components\Select::make('priority')
                             ->label('Prioritas')

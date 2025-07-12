@@ -19,8 +19,8 @@ class PostCategoryResource extends Resource
     protected static ?string $modelLabel = 'Kategori Berita';
     protected static ?string $pluralModelLabel = 'Kategori Berita';
     
-    // Mengelompokkan menu ini di bawah "Manajemen Konten"
-    protected static ?string $navigationGroup = 'Manajemen Konten';
+    protected static ?string $navigationGroup = 'Manajemen Berita';
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {

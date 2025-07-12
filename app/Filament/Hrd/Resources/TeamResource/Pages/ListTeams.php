@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Direktur\Resources\TeamResource\Pages;
+namespace App\Filament\Hrd\Resources\TeamResource\Pages;
 
-use App\Filament\Direktur\Resources\TeamResource;
+use App\Filament\Hrd\Resources\TeamResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 

@@ -58,13 +58,7 @@ class TaskResource extends Resource
                             ->options(TaskCategory::pluck('name', 'id'))
                             ->searchable()
                             ->required()
-                            ->createOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->label('Nama Kategori')
-                                    ->required(),
-                                Forms\Components\Textarea::make('description')
-                                    ->label('Deskripsi'),
-                            ]),
+                            ->native(false),
 
                         Forms\Components\Select::make('priority')
                             ->label('Prioritas')
@@ -162,6 +156,32 @@ class TaskResource extends Resource
                             ->placeholder('Instruksi khusus, referensi, atau catatan penting lainnya...')
                             ->columnSpanFull(),
                     ]),
+
+                Forms\Components\Section::make('Komentar & Diskusi')
+                    ->schema([
+                        Forms\Components\Repeater::make('comments')
+                            ->label('Komentar')
+                            ->relationship('comments')
+                            ->schema([
+                                Forms\Components\Textarea::make('comment')
+                                    ->label('Komentar')
+                                    ->required()
+                                    ->rows(3)
+                                    ->columnSpanFull(),
+                                Forms\Components\Hidden::make('user_id')
+                                    ->default(Auth::id()),
+                            ])
+                            ->addActionLabel('Tambah Komentar')
+                            ->collapsible()
+                            ->cloneable()
+                            ->reorderableWithButtons()
+                            ->itemLabel(function (array $state): ?string {
+                                $user = \App\Models\User::find($state['user_id'] ?? null);
+                                $preview = substr($state['comment'] ?? '', 0, 50);
+                                return ($user?->name ?? 'User') . ': ' . $preview . (strlen($state['comment'] ?? '') > 50 ? '...' : '');
+                            }),
+                    ])
+                    ->visible(fn (string $operation): bool => $operation === 'edit'),
             ]);
     }
 
@@ -232,16 +252,40 @@ class TaskResource extends Resource
 
                 Tables\Columns\TextColumn::make('assignee.name')
                     ->label('Penanggung Jawab')
-                    ->default('-'),
+                    ->formatStateUsing(fn ($state) => $state ?: '-'),
 
                 Tables\Columns\TextColumn::make('due_date')
                     ->label('Deadline')
-                    ->dateTime('d M Y H:i')
-                    ->sortable()
-                    ->color(fn ($record) => $record->due_date < now() && in_array($record->status, ['todo', 'in_progress']) ? 'danger' : null),
+                    ->formatStateUsing(function ($state, $record) {
+                        if (!$state) return '-';
+                        
+                        $formatted = $state->format('d M Y H:i');
+                        $isOverdue = $state < now() && in_array($record->status, ['todo', 'in_progress']);
+                        
+                        return $isOverdue ? "🚨 {$formatted}" : $formatted;
+                    })
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('comments_count')
+                    ->label('Diskusi')
+                    ->counts('comments')
+                    ->badge()
+                    ->color('info')
+                    ->formatStateUsing(function ($state, $record) {
+                        if ($state == 0) return '-';
+                        
+                        // Cek apakah ada komentar baru (dalam 24 jam terakhir dari user lain)
+                        $newComments = $record->comments()
+                            ->where('created_at', '>', now()->subDay())
+                            ->where('user_id', '!=', auth()->id())
+                            ->count();
+                        
+                        return $state . ($newComments > 0 ? " (🆕{$newComments})" : '');
+                    }),
 
                 Tables\Columns\TextColumn::make('creator.name')
                     ->label('Dibuat Oleh')
+                    ->formatStateUsing(fn ($state) => $state ?: '-')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([

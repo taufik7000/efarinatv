@@ -33,8 +33,5 @@ class Advertisement extends Model
         return $this->belongsTo(User::class, 'marketing_user_id');
     }
 
-    public function editorialTasks(): HasMany
-    {
-        return $this->hasMany(EditorialTask::class);
-    }
+    
 }

@@ -27,7 +27,7 @@ class RedaksiPanelProvider extends PanelProvider
             ->id('redaksi')
             ->path('redaksi')
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Blue,
             ])
             ->discoverResources(in: app_path('Filament/Redaksi/Resources'), for: 'App\\Filament\\Redaksi\\Resources')
             ->discoverPages(in: app_path('Filament/Redaksi/Pages'), for: 'App\\Filament\\Redaksi\\Pages')
