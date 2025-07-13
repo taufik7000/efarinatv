@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FinanceCategory extends Model
 {
@@ -22,4 +23,8 @@ class FinanceCategory extends Model
      * @var array
      */
     protected $guarded = ['id'];
+    public function budgetType(): BelongsTo
+    {
+        return $this->belongsTo(BudgetType::class);
+    }
 }

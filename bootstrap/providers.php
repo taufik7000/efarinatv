@@ -9,4 +9,5 @@ return [
     App\Providers\Filament\KontributorPanelProvider::class,
     App\Providers\Filament\MarketingPanelProvider::class,
     App\Providers\Filament\RedaksiPanelProvider::class,
+    App\Providers\Filament\TeamPanelProvider::class,
 ];

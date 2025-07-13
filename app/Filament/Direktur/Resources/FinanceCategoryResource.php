@@ -25,12 +25,17 @@ class FinanceCategoryResource extends Resource
     {
         return $form
             ->schema([
+                Forms\Components\Select::make('budget_type_id')
+                    ->label('Jenis Anggaran Induk')
+                    ->relationship('budgetType', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->required(),
+                // --- AKHIR PERUBAHAN ---
                 Forms\Components\TextInput::make('name')
                     ->label('Nama Kategori')
                     ->required()
-                    ->maxLength(255)
-                    ->unique(ignoreRecord: true),
-                
+                    ->maxLength(255),
                 Forms\Components\Textarea::make('description')
                     ->label('Deskripsi')
                     ->columnSpanFull(),
@@ -41,6 +46,10 @@ class FinanceCategoryResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('budgetType.name')
+                    ->label('Jenis Anggaran')
+                    ->sortable()
+                    ->badge(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Kategori')
                     ->searchable()

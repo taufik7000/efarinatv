@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasOne; // <-- Tambahkan ini
 
 class FinanceTransaction extends Model
 {
@@ -22,6 +23,17 @@ class FinanceTransaction extends Model
         'is_urgent_request' => 'boolean',
         'total_amount' => 'decimal:2',
     ];
+
+    // --- AWAL PENAMBAHAN ---
+    /**
+     * Mendefinisikan relasi "hasOne" ke model Payment.
+     * Satu transaksi akan memiliki satu data pembayaran.
+     */
+    public function payment(): HasOne
+    {
+        return $this->hasOne(Payment::class, 'finance_transaction_id');
+    }
+    // --- AKHIR PENAMBAHAN ---
 
     // --- RELATIONS ---
     public function details(): HasMany 
@@ -49,222 +61,58 @@ class FinanceTransaction extends Model
         return $this->belongsTo(Advertisement::class, 'advertisement_id');
     }
 
-    // --- SCOPES (Untuk Query yang Efisien) ---
-    public function scopeApproved(Builder $query): void
+    public function budgetType(): BelongsTo
     {
-        $query->where('status', 'approved');
+        return $this->belongsTo(BudgetType::class);
+    }
+    public function pic(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pic_user_id');
     }
 
-    public function scopePending(Builder $query): void
+    public function accountabilityReport(): HasOne
     {
-        $query->where('status', 'pending');
+        return $this->hasOne(AccountabilityReport::class, 'finance_transaction_id');
     }
 
-    public function scopeRejected(Builder $query): void
+    public function sourceReport(): BelongsTo
     {
-        $query->where('status', 'rejected');
+        return $this->belongsTo(AccountabilityReport::class, 'source_accountability_report_id');
     }
 
-    public function scopePaid(Builder $query): void
-    {
-        $query->where('status', 'paid');
-    }
+    // Sisa kode model tidak berubah...
+    public function scopeApproved(Builder $query): void { $query->where('status', 'approved'); }
+    public function scopePending(Builder $query): void { $query->where('status', 'pending'); }
+    public function scopeRejected(Builder $query): void { $query->where('status', 'rejected'); }
+    public function scopePaid(Builder $query): void { $query->where('status', 'paid'); }
+    public function scopeExpenses(Builder $query): void { $query->where('type', 'expense'); }
+    public function scopeIncomes(Builder $query): void { $query->where('type', 'income'); }
+    public function scopeUrgent(Builder $query): void { $query->where(function ($q) { $q->where('urgency_level', 'urgent')->orWhere('is_urgent_request', true); }); }
+    public function scopeByUrgencyLevel(Builder $query, string $level): void { $query->where('urgency_level', $level); }
+    public function scopeByBudgetType(Builder $query, string $type): void { $query->where('budget_type', $type); }
+    public function scopeThisMonth(Builder $query): void { $query->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year); }
+    public function scopeThisYear(Builder $query): void { $query->whereYear('created_at', now()->year); }
+    public function scopeOverdue(Builder $query): void { $query->where('transaction_date', '<', now())->whereIn('status', ['pending', 'approved']); }
+    public function scopeByUser(Builder $query, int $userId): void { $query->where('user_id', $userId); }
+    public function getStatusTextAttribute(): string { return match ($this->status) { 'pending' => 'Menunggu Persetujuan', 'approved' => 'Disetujui', 'rejected' => 'Ditolak', 'paid' => 'Telah Dibayar', default => 'Tidak Diketahui', }; }
+    public function getUrgencyTextAttribute(): string { return match ($this->urgency_level) { 'low' => 'Rendah', 'medium' => 'Sedang', 'high' => 'Tinggi', 'urgent' => 'Sangat Urgent', default => 'Sedang', }; }
+    public function getBudgetTypeTextAttribute(): string { return match ($this->budget_type) { 'operational' => 'Operasional Rutin', 'project' => 'Proyek Khusus', 'equipment' => 'Peralatan & Teknologi', 'travel' => 'Perjalanan Dinas', 'event' => 'Event & Kegiatan', 'emergency' => 'Darurat/Tidak Terduga', 'training' => 'Pelatihan & Pengembangan', 'maintenance' => 'Pemeliharaan', default => 'Tidak Ditentukan', }; }
+    public function getApprovalNeededByTextAttribute(): string { return match ($this->approval_needed_by) { 'manager' => 'Manager Redaksi', 'finance_manager' => 'Manager Keuangan', 'director' => 'Direktur', 'board' => 'Dewan Direksi', default => 'Manager Keuangan', }; }
+    public function getIsOverdueAttribute(): bool { return $this->transaction_date < now() && in_array($this->status, ['pending', 'approved']); }
+    public function getDaysUntilNeededAttribute(): int { return $this->transaction_date->diffInDays(now(), false); }
+    public function getDaysSinceCreatedAttribute(): int { return $this->created_at->diffInDays(now()); }
+    public function getTotalItemsAttribute(): int { return $this->details()->count(); }
+    public function getTotalAttachmentsAttribute(): int { return $this->attachments()->count(); }
+    public function getFormattedTotalAmountAttribute(): string { return 'Rp ' . number_format($this->total_amount, 0, ',', '.'); }
+    public function setProjectNameAttribute($value): void { $this->attributes['project_name'] = ucwords(strtolower($value)); }
+    public function canBeEdited(): bool { return in_array($this->status, ['pending', 'rejected']); }
+    public function canBeDeleted(): bool { return in_array($this->status, ['pending', 'rejected']); }
+    public function canBeApproved(): bool { return $this->status === 'pending'; }
+    public function markAsApproved(int $approvedBy): void { $this->update(['status' => 'approved', 'approved_by' => $approvedBy, 'approved_at' => now(),]); }
+    public function markAsRejected(): void { $this->update(['status' => 'rejected']); }
+    public function markAsPaid(): void { $this->update(['status' => 'paid']); }
+    public function calculateTotal(): float { return $this->details()->sum('amount'); }
+    public function recalculateTotal(): void { $total = $this->calculateTotal(); $this->update(['total_amount' => $total]); }
+    protected static function boot() { parent::boot(); static::saved(function ($transaction) { if ($transaction->type === 'expense') { $calculatedTotal = $transaction->calculateTotal(); if ($calculatedTotal !== (float) $transaction->total_amount) { $transaction->recalculateTotal(); } } }); }
 
-    public function scopeExpenses(Builder $query): void
-    {
-        $query->where('type', 'expense');
-    }
-
-    public function scopeIncomes(Builder $query): void
-    {
-        $query->where('type', 'income');
-    }
-
-    public function scopeUrgent(Builder $query): void
-    {
-        $query->where(function ($q) {
-            $q->where('urgency_level', 'urgent')
-              ->orWhere('is_urgent_request', true);
-        });
-    }
-
-    public function scopeByUrgencyLevel(Builder $query, string $level): void
-    {
-        $query->where('urgency_level', $level);
-    }
-
-    public function scopeByBudgetType(Builder $query, string $type): void
-    {
-        $query->where('budget_type', $type);
-    }
-
-    public function scopeThisMonth(Builder $query): void
-    {
-        $query->whereMonth('created_at', now()->month)
-              ->whereYear('created_at', now()->year);
-    }
-
-    public function scopeThisYear(Builder $query): void
-    {
-        $query->whereYear('created_at', now()->year);
-    }
-
-    public function scopeOverdue(Builder $query): void
-    {
-        $query->where('transaction_date', '<', now())
-              ->whereIn('status', ['pending', 'approved']);
-    }
-
-    public function scopeByUser(Builder $query, int $userId): void
-    {
-        $query->where('user_id', $userId);
-    }
-
-    // --- ACCESSORS (Untuk Format Data Otomatis) ---
-    public function getStatusTextAttribute(): string
-    {
-        return match ($this->status) {
-            'pending' => 'Menunggu Persetujuan',
-            'approved' => 'Disetujui',
-            'rejected' => 'Ditolak',
-            'paid' => 'Telah Dibayar',
-            default => 'Tidak Diketahui',
-        };
-    }
-
-    public function getUrgencyTextAttribute(): string
-    {
-        return match ($this->urgency_level) {
-            'low' => 'Rendah',
-            'medium' => 'Sedang',
-            'high' => 'Tinggi',
-            'urgent' => 'Sangat Urgent',
-            default => 'Sedang',
-        };
-    }
-
-    public function getBudgetTypeTextAttribute(): string
-    {
-        return match ($this->budget_type) {
-            'operational' => 'Operasional Rutin',
-            'project' => 'Proyek Khusus',
-            'equipment' => 'Peralatan & Teknologi',
-            'travel' => 'Perjalanan Dinas',
-            'event' => 'Event & Kegiatan',
-            'emergency' => 'Darurat/Tidak Terduga',
-            'training' => 'Pelatihan & Pengembangan',
-            'maintenance' => 'Pemeliharaan',
-            default => 'Tidak Ditentukan',
-        };
-    }
-
-    public function getApprovalNeededByTextAttribute(): string
-    {
-        return match ($this->approval_needed_by) {
-            'manager' => 'Manager Redaksi',
-            'finance_manager' => 'Manager Keuangan',
-            'director' => 'Direktur',
-            'board' => 'Dewan Direksi',
-            default => 'Manager Keuangan',
-        };
-    }
-
-    public function getIsOverdueAttribute(): bool
-    {
-        return $this->transaction_date < now() && 
-               in_array($this->status, ['pending', 'approved']);
-    }
-
-    public function getDaysUntilNeededAttribute(): int
-    {
-        return $this->transaction_date->diffInDays(now(), false);
-    }
-
-    public function getDaysSinceCreatedAttribute(): int
-    {
-        return $this->created_at->diffInDays(now());
-    }
-
-    public function getTotalItemsAttribute(): int
-    {
-        return $this->details()->count();
-    }
-
-    public function getTotalAttachmentsAttribute(): int
-    {
-        return $this->attachments()->count();
-    }
-
-    public function getFormattedTotalAmountAttribute(): string
-    {
-        return 'Rp ' . number_format($this->total_amount, 0, ',', '.');
-    }
-
-    // --- MUTATORS ---
-    public function setProjectNameAttribute($value): void
-    {
-        $this->attributes['project_name'] = ucwords(strtolower($value));
-    }
-
-    // --- METHODS ---
-    public function canBeEdited(): bool
-    {
-        return in_array($this->status, ['pending', 'rejected']);
-    }
-
-    public function canBeDeleted(): bool
-    {
-        return in_array($this->status, ['pending', 'rejected']);
-    }
-
-    public function canBeApproved(): bool
-    {
-        return $this->status === 'pending';
-    }
-
-    public function markAsApproved(int $approvedBy): void
-    {
-        $this->update([
-            'status' => 'approved',
-            'approved_by' => $approvedBy,
-            'approved_at' => now(),
-        ]);
-    }
-
-    public function markAsRejected(): void
-    {
-        $this->update(['status' => 'rejected']);
-    }
-
-    public function markAsPaid(): void
-    {
-        $this->update(['status' => 'paid']);
-    }
-
-    public function calculateTotal(): float
-    {
-        return $this->details()->sum('amount');
-    }
-
-    public function recalculateTotal(): void
-    {
-        $total = $this->calculateTotal();
-        $this->update(['total_amount' => $total]);
-    }
-
-    // --- BOOT METHOD ---
-    protected static function boot()
-    {
-        parent::boot();
-
-        // Auto calculate total saat details berubah
-        static::saved(function ($transaction) {
-            if ($transaction->type === 'expense') {
-                $calculatedTotal = $transaction->calculateTotal();
-                if ($calculatedTotal !== (float) $transaction->total_amount) {
-                    $transaction->recalculateTotal();
-                }
-            }
-        });
-    }
 }

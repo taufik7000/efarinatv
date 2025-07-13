@@ -90,6 +90,9 @@ class LoginController extends Controller
         } 
         elseif ($user->hasRole('redaksi')) {
             return redirect()->to('/redaksi');
+        } 
+        elseif ($user->hasRole('team')) {
+            return redirect()->to('/team');
         }
         elseif ($user->hasRole(['admin', 'super-admin'])) {
             return redirect()->to('/admin');
