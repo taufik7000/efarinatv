@@ -29,13 +29,7 @@ class DirekturPanelProvider extends PanelProvider
             ])
             ->discoverResources(in: app_path('Filament/Direktur/Resources'), for: 'App\\Filament\\Direktur\\Resources')
             ->discoverPages(in: app_path('Filament/Direktur/Pages'), for: 'App\\Filament\\Direktur\\Pages')
-            ->pages([
-                // Pages::Dashboard::class,
-            ])
             ->discoverWidgets(in: app_path('Filament/Direktur/Widgets'), for: 'App\\Filament\\Direktur\\Widgets')
-            ->widgets([
-                // Widgets\AccountWidget::class,
-            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
