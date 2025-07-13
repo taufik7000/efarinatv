@@ -51,6 +51,7 @@ class RedaksiPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                'role:redaksi'
             ])
             ->authMiddleware([
                 Authenticate::class,
